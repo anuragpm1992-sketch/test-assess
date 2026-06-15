@@ -1,0 +1,44 @@
+pipeline {
+    agent any
+    environment {
+        IMAGE_NAME = 'app-backend'
+        CONTAINER_NAME = 'backend-contain'
+        EC2_IP = '44.204.61.180'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/anuragpm1992-sketch/E-flow-Backend.git'
+            }
+        } 
+
+        stage('build') {
+            steps {
+              sshagent(['aws_key_pem']){
+                sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "
+                    rm -rf /home/ubuntu/backend
+                    mkdir -p /home/ubuntu/backend
+                    cd /home/ubuntu/backend
+
+                    if [ ! -d E-flow-Backend ]; then 
+                        git clone https://github.com/anuragpm1992-sketch/E-flow-Backend.git
+                    fi 
+                    
+                    cd E-flow-Backend
+                    git checkout main
+                    git pull origin main
+                    
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
+                    docker rmi ${IMAGE_NAME} || true
+                    docker build -t ${IMAGE_NAME} .
+                    docker run -d -p 3000:3000 --name ${CONTAINER_NAME} ${IMAGE_NAME}
+                    "
+                """
+            }        
+          }
+        }
+    } 
+}
